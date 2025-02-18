@@ -1,25 +1,23 @@
 import click, sys
-from models import db, User
+from models import db, User, Todo
 from app import app
-from sqlalchemy.exc import IntegrityError
 
 @app.cli.command("init", help="Creates and initializes the database")
 def initialize():
-    """Initializes the database and adds a test user."""
-    with app.app_context():  
-        db.drop_all()
-        db.create_all()
+    db.drop_all()
+    db.create_all()
 
-        try:
-            bob = User(username='bob', email='bob@mail.com', password='bobpass')
-            db.session.add(bob)  
-            db.session.commit()  
-            print(f"User created: {bob}")
-        except IntegrityError as e:
-            db.session.rollback()  
-            print(f"Error creating user: {e}")
+    bob = User('bob', 'bob@mail.com', 'bobpass')
+    db.session.add(bob)  
+    db.session.commit()
 
-        print("Database initialized")
+    # Now pass the user_id when creating the Todo
+    bob.todos.append(Todo('wash car', bob.id))  # Passing bob.id as user_id
+    db.session.add(bob)
+    db.session.commit()
+
+    print(bob)
+    print('database initialized')
 
 
 @app.cli.command("get-user", help="Retrieves a User")
@@ -33,9 +31,9 @@ def get_user(username):
 
 @app.cli.command('get-users')
 def get_users():
-      # gets all objects of a model
-      users = User.query.all()
-      print(users)
+  # gets all objects of a model
+  users = User.query.all()
+  print(users)
 
 @app.cli.command("change-email")
 @click.argument('username', default='bob')
@@ -67,7 +65,6 @@ def create_user(username, email, password):
   else:
     print(newuser) # print the newly created user
 
-
 @app.cli.command('delete-user')
 @click.argument('username', default='bob')
 def delete_user(username):
@@ -78,3 +75,25 @@ def delete_user(username):
   db.session.delete(bob)
   db.session.commit()
   print(f'{username} deleted')
+
+@app.cli.command('get-todos')
+@click.argument('username', default='bob')
+def get_user_todos(username):
+  bob = User.query.filter_by(username=username).first()
+  if not bob:
+      print(f'{username} not found!')
+      return
+  print(bob.todos)
+
+@app.cli.command('add-todo')
+@click.argument('username', default='bob')
+@click.argument('text', default='wash car')
+def add_task(username, text):
+  bob = User.query.filter_by(username=username).first()
+  if not bob:
+      print(f'{username} not found!')
+      return
+  new_todo = Todo(text)
+  bob.todos.append(new_todo)
+  db.session.add(bob)
+  db.session.commit()
